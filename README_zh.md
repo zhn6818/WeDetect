@@ -250,5 +250,5 @@ bash dist_test.sh config/wedetect_uni_base_finetune.py wedetect_base_uni.pth 8
 
 ## 📜 协议
 
-- 我们的模型和代码在GPL-v3协议下开源。
+- 我们的模型和代码是在GPL-v3协议下开源。
 
