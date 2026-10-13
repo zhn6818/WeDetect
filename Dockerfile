@@ -81,6 +81,37 @@ RUN /opt/miniconda3/bin/conda run --no-capture-output -n ai pip install --no-cac
     /opt/miniconda3/envs/ai/bin/pip check && \
     rm /tmp/requirements.txt
 
+# WeDetect 依赖。仓库中的 requirements.txt 主要服务于 SRT/ONNX 流程，
+# 不包含 WeDetect 的 OpenMMLab 检测框架和视觉语言模型依赖。
+RUN /opt/miniconda3/bin/conda run --no-capture-output -n ai pip install --no-cache-dir \
+    "transformers==4.57.1" \
+    "trl==0.17.0" \
+    "accelerate==1.10.0" \
+    "mmengine==0.10.7" \
+    "timm" \
+    "supervision==0.19.0" \
+    "pycocotools" \
+    "terminaltables" \
+    "jsonlines" \
+    "tabulate" \
+    "lvis" \
+    "webdataset" \
+    "ddd-dataset" \
+    -i https://pypi.tuna.tsinghua.edu.cn/simple && \
+    /opt/miniconda3/envs/ai/bin/pip check
+
+# OpenMMLab 组件。mmcv 需要在当前 CUDA/PyTorch 环境中安装；mim 会优先选择匹配
+# 的预编译包，没有可用 wheel 时会自动源码编译，因此此步骤可能耗时较长。
+RUN /opt/miniconda3/bin/conda run --no-capture-output -n ai pip install --no-cache-dir openmim -i https://pypi.tuna.tsinghua.edu.cn/simple && \
+    /opt/miniconda3/bin/conda run --no-capture-output -n ai mim install "mmcv==2.1.0" && \
+    /opt/miniconda3/bin/conda run --no-capture-output -n ai pip install --no-cache-dir "mmdet==3.3.0" -i https://pypi.tuna.tsinghua.edu.cn/simple && \
+    /opt/miniconda3/envs/ai/bin/pip check
+
+# 将源码放入镜像；模型权重建议运行时挂载到 checkpoints/，避免写入镜像层。
+WORKDIR /workspace/wedetect
+COPY . /workspace/wedetect/
+ENV PYTHONPATH="/workspace/wedetect:${PYTHONPATH}"
+
 # onnxruntime-gpu 运行库兜底：conda 安装的 torch 把 cuDNN/cuBLAS 放 env/lib（已在
 # LD_LIBRARY_PATH）；若镜像迭代改为 pip 轮子 torch（库在 site-packages/torch/lib），
 # 软链到 env/lib 保证 ORT 的 dlopen 找得到。已存在则软链无副作用。
@@ -90,8 +121,8 @@ RUN TL=$(/opt/miniconda3/envs/ai/bin/python -c "import torch,os;print(os.path.jo
     done; \
     /opt/miniconda3/envs/ai/bin/python -c "import onnxruntime as ort; ps=ort.get_available_providers(); assert 'CUDAExecutionProvider' in ps, f'缺 CUDA EP: {ps}'; print(f'onnxruntime-gpu OK: {ort.__version__} | {ps}')"
 
-# 终检：关键链必须全部可导入并打出版本（构建期即暴露解析漂移/缺包）
-RUN /opt/miniconda3/bin/conda run --no-capture-output -n ai python -c "import torch, numpy, cv2, onnx, onnxslim, ml_dtypes, albumentations; print(f'torch {torch.__version__} | numpy {numpy.__version__} | cv2 {cv2.__version__} | onnx {onnx.__version__} | onnxslim {onnxslim.__version__} | ml_dtypes {ml_dtypes.__version__} | albumentations {albumentations.__version__}')"
+# 终检：同时覆盖 SRT/ONNX 链和 WeDetect 推理链。
+RUN /opt/miniconda3/bin/conda run --no-capture-output -n ai python -c "import torch, torchvision, numpy, cv2, onnx, onnxslim, ml_dtypes, albumentations, transformers, timm, supervision, mmcv, mmengine, mmdet, wedetect; print(f'torch {torch.__version__} | numpy {numpy.__version__} | cv2 {cv2.__version__} | onnx {onnx.__version__} | mmcv {mmcv.__version__} | mmengine {mmengine.__version__} | mmdet {mmdet.__version__}')"
 
 # SSH配置
 RUN echo 'Port 22' > /etc/ssh/sshd_config && \
