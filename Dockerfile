@@ -100,10 +100,14 @@ RUN /opt/miniconda3/bin/conda run --no-capture-output -n ai pip install --no-cac
     -i https://pypi.tuna.tsinghua.edu.cn/simple && \
     /opt/miniconda3/envs/ai/bin/pip check
 
-# OpenMMLab 组件。mmcv 需要在当前 CUDA/PyTorch 环境中安装；mim 会优先选择匹配
-# 的预编译包，没有可用 wheel 时会自动源码编译，因此此步骤可能耗时较长。
-RUN /opt/miniconda3/bin/conda run --no-capture-output -n ai pip install --no-cache-dir openmim -i https://pypi.tuna.tsinghua.edu.cn/simple && \
-    /opt/miniconda3/bin/conda run --no-capture-output -n ai mim install "mmcv==2.1.0" && \
+# OpenMMLab 组件。当前 CUDA 12.4 + PyTorch 2.5.1 组合通常没有 mmcv 2.1.0
+# 的预编译 wheel，因此关闭 PEP 517 隔离环境，使用容器内已有的 setuptools/pkg_resources
+# 从源码编译 mmcv；这样也避免新版构建隔离环境移除了 pkg_resources。
+RUN /opt/miniconda3/bin/conda run --no-capture-output -n ai pip install --no-cache-dir \
+    "setuptools==70.3.0" "wheel" -i https://pypi.tuna.tsinghua.edu.cn/simple && \
+    /opt/miniconda3/bin/conda run --no-capture-output -n ai pip install --no-cache-dir --no-build-isolation \
+    "mmcv==2.1.0" \
+    -f https://download.openmmlab.com/mmcv/dist/cu124/torch2.5.0/index.html && \
     /opt/miniconda3/bin/conda run --no-capture-output -n ai pip install --no-cache-dir "mmdet==3.3.0" -i https://pypi.tuna.tsinghua.edu.cn/simple && \
     /opt/miniconda3/envs/ai/bin/pip check
 
