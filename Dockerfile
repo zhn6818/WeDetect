@@ -103,9 +103,12 @@ RUN /opt/miniconda3/bin/conda run --no-capture-output -n ai pip install --no-cac
 # OpenMMLab 组件。当前 CUDA 12.4 + PyTorch 2.5.1 组合通常没有 mmcv 2.1.0
 # 的预编译 wheel，因此关闭 PEP 517 隔离环境，使用容器内已有的 setuptools/pkg_resources
 # 从源码编译 mmcv；这样也避免新版构建隔离环境移除了 pkg_resources。
-RUN /opt/miniconda3/bin/conda run --no-capture-output -n ai pip install --no-cache-dir \
+# 显式打开 CUDA/C++ 算子编译；构建阶段通常没有 NVIDIA runtime，因此还要用
+# FORCE_CUDA=1 强制生成 mmcv.ops.nms 的 CUDA 实现；RTX 3060 的计算能力为 8.6，
+# 明确指定架构以避免构建阶段没有 GPU 时无法推断 arch_list。
+RUN MMCV_WITH_OPS=1 FORCE_CUDA=1 TORCH_CUDA_ARCH_LIST=8.6 /opt/miniconda3/bin/conda run --no-capture-output -n ai pip install --no-cache-dir \
     "setuptools==70.3.0" "wheel" -i https://pypi.tuna.tsinghua.edu.cn/simple && \
-    /opt/miniconda3/bin/conda run --no-capture-output -n ai pip install --no-cache-dir --no-build-isolation \
+    MMCV_WITH_OPS=1 FORCE_CUDA=1 TORCH_CUDA_ARCH_LIST=8.6 /opt/miniconda3/bin/conda run --no-capture-output -n ai pip install --no-cache-dir --no-build-isolation \
     "mmcv==2.1.0" \
     -f https://download.openmmlab.com/mmcv/dist/cu124/torch2.5.0/index.html && \
     /opt/miniconda3/bin/conda run --no-capture-output -n ai pip install --no-cache-dir "mmdet==3.3.0" -i https://pypi.tuna.tsinghua.edu.cn/simple && \

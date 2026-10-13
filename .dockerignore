@@ -1,0 +1,12 @@
+weights/
+checkpoints/
+demo_outputs/
+demo_outputs_tiny_test/
+work_dirs/
+__pycache__/
+*.pyc
+.git/
+.agents/
+.aws/
+.codex/
+build.log
