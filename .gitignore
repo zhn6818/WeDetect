@@ -2,3 +2,5 @@
 *.log
 weights/
 __pycache__/
+wedetect_uni_result/
+work_dirs/
